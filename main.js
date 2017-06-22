@@ -13,6 +13,7 @@ const INPUT_TYPE = `{
     urls: Maybe [String],
     urlToTextFileWithUrls: Maybe String,
     script: Maybe String,
+    asyncScript: Maybe String,
     proxyUrls: Maybe [String],
     userAgents: Maybe [String],
     concurrency: Maybe Number,
@@ -41,6 +42,11 @@ const requestPromised = async (opts) => {
     });
 };
 
+const redactProxyUrl = (url) => {
+    const parsed = URL.parse(url);
+    return `${parsed.scheme}//${parsed.auth ? '<redacted>@' : ''}${parsed.host}`;
+};
+
 
 // Objects holding the state of the crawler, which is stored under 'STATE' key in the KV store
 let state;
@@ -53,7 +59,7 @@ let lastStoredAt = new Date();
 
 let isStoring = false;
 
-let storePagesInterval = 100;
+let storePagesInterval = 20;
 
 // If there's a long enough time since the last storing,
 // stores finished pages and the current state to the KV store.
@@ -130,11 +136,13 @@ Apify.main(async () => {
 
     // Worker function, it crawls one URL from the list
     const workerFunc = async (url) => {
+        const proxyUrl = getRandomElement(input.proxyUrls);
+
         const page = {
             url,
             loadingStartedAt: new Date(),
             userAgent: getRandomElement(input.userAgents),
-            proxyUrl: getRandomElement(input.proxyUrls),
+            redactedProxyUrl: redactProxyUrl(proxyUrl),
         };
         let browser;
 
@@ -146,7 +154,7 @@ Apify.main(async () => {
                 const opts = {
                     url,
                     headers: page.userAgent ? { 'User-Agent': page.userAgent } : null,
-                    proxy: page.proxyUrl,
+                    proxy: proxyUrl,
                 };
 
                 page.html = await requestPromised(opts);
@@ -155,7 +163,8 @@ Apify.main(async () => {
                 page.scriptResult = null;
             } else {
                 // Open web page using Chrome
-                const opts = _.pick(page, 'url', 'userAgent', 'proxyUrl');
+                const opts = _.pick(page, 'url', 'userAgent')
+                opts.proxyUrl = proxyUrl;
                 browser = await Apify.browse(opts);
 
                 page.loadingFinishedAt = new Date();
@@ -165,12 +174,20 @@ Apify.main(async () => {
                     await browser.webDriver.sleep(1000 * input.sleepSecs);
                 }
 
-                // Run script to get data
                 page.loadedUrl = await browser.webDriver.getCurrentUrl();
+
+                // Run sync script to get data
                 if (input.script) {
                     page.scriptResult = await browser.webDriver.executeScript(input.script);
                 } else {
                     page.scriptResult = null;
+                }
+
+                // Run async script to get data
+                if (input.asyncScript) {
+                    page.asyncScriptResult = await browser.webDriver.executeAsyncScript(input.asyncScript);
+                } else {
+                    page.asyncScriptResult = null;
                 }
             }
         } catch (e) {

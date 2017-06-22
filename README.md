@@ -14,8 +14,13 @@ The act accepts input of application/json content type with the following body:
     // URL to a text file containing list of URLs to crawl. Each URL needs to be on a separate line.
     urlToTextFileWithUrls: String,
 
-    // Mandatory JavaScript code executed in the context of each web page.
+    // Synchronous JavaScript code executed in the context of each web page,
+    // See http://seleniumhq.github.io/selenium/docs/api/javascript/module/selenium-webdriver/index_exports_WebDriver.html#executeScript
     script: String,
+
+    // Asynchronous JavaScript code executed in the context of each web page,
+    // See http://seleniumhq.github.io/selenium/docs/api/javascript/module/selenium-webdriver/index_exports_WebDriver.html#executeAsyncScript
+    asyncScript: String,
 
     // Array of URLs to proxy servers. The proxies are picked randomly from this list.
     // By default no proxies are used.
@@ -38,7 +43,7 @@ The act accepts input of application/json content type with the following body:
     // How many pages will be buffered before they are stored to the key-value store.
     // If you use low value, there will be a lot of files small files in the storage, but on restart
     // not much work will be repeated. With high value, the files in storage will be large.
-    // By default 100.
+    // By default 20.
     storePagesInterval: Number,
 }
 ```
@@ -63,8 +68,24 @@ The state of the crawler and results are stored as application/json object into 
         loadingStartedAt: Date,
         loadingFinishedAt: Date,
         scriptResult: {},
+        asyncScriptResult: {},
         proxyUrl: String,
         html: String, // Only if "rawHtmlOnly" is set
     }]
+}
+```
+
+
+Example inputs:
+
+```javascript
+{
+    "urls": [
+        "https://www.example.com"
+    ],
+
+    "script": "return document.documentElement.innerHTML",
+
+    "userAgents": ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.32 Safari/537.36"],
 }
 ```
