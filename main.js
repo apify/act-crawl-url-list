@@ -93,6 +93,12 @@ const maybeStoreData = async (force) => {
 
         lastStoredAt = new Date();
     } catch(e) {
+        // This is a fatal error, immediately stop the act
+        if (e.message && e.message.indexOf('The POST payload is too large') >= 0) {
+            console.log('FATAL ERROR');
+            console.log(e.stack || e);
+            process.exit(1);
+        }
         if (force) throw e;
         console.log(`ERROR: Cannot store data (will be ignored): ${e.stack || e}`);
     } finally {
