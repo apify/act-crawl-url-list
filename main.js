@@ -45,7 +45,7 @@ const requestPromised = async (opts) => {
 const redactProxyUrl = (url) => {
     if (!url) return url;
     const parsed = URL.parse(url);
-    return `${parsed.scheme}//${parsed.auth ? '<redacted>@' : ''}${parsed.host}`;
+    return `${parsed.protocol}//${parsed.auth ? '<redacted>@' : ''}${parsed.host}`;
 };
 
 
