@@ -1,9 +1,10 @@
+const URL = require('url');
 const _ = require('underscore');
 const Apify = require('apify');
 const request = require('request');
 const async = require('async');
-const URL = require('url');
 const typeCheck = require('type-check').typeCheck;
+const leftPad = require('left-pad');
 
 // TODO: save screenshots to kv-store
 
@@ -19,13 +20,69 @@ const INPUT_TYPE = `{
     rawHtmlOnly: Maybe Boolean
 }`;
 
+const SAVE_INTERVAL_MILLIS = 5 * 60 * 1000; // 3 minutes
+
+const DEFAULT_STATE = {
+    urlToStoreKey: {},
+    storedCount: 0,
+};
+
 // Returns random array element, or null if array is empty, null or undefined.
 const getRandomElement = (array) => {
     if (!array || !array.length) return null;
     return array[Math.floor(Math.random() * array.length)];
 };
 
-Apify.main( async () => {
+
+// Objects holding the state of the crawler, which is stored under 'STATE' key in the KV store
+let state;
+
+// Array of Page records that were finished but not yet stored to KV store
+const finishedPages = [];
+
+// Date when state and data was last stored
+let lastStoredAt = new Date();
+
+let isStoring = false;
+
+// If there's a long enough time since the last storing,
+// stores finished pages and the current state to the KV store.
+const maybeStoreData = async (force) => {
+    // Is there anything to store?
+    if (finishedPages.length === 0) return;
+
+    // Is it long enough time since the last storing?
+    if (!force && Date.now() - lastStoredAt.getTime() < SAVE_INTERVAL_MILLIS) return;
+
+    // Isn't some other worker storing data?
+    if (isStoring) return;
+    isStoring = true;
+
+    try {
+        // Store buffered pages to store under key PAGES-XXX
+        // Careful here, finishedPages array might be added more elements while awaiting setValue()
+        const pagesToStore = _.clone(finishedPages);
+        const key = `PAGES-${leftPad(state.storedCount++, 9, '0')}`;
+        await Apify.setValue(key, pagesToStore);
+        finishedPages.splice(0, pagesToStore.length);
+
+        // Save state
+        pagesToStore.forEach((page) => {
+            state.urlToStoreKey[page.url] = key;
+        });
+        await Apify.setValue('STATE', state);
+
+        lastStoredAt = new Date();
+    } catch(e) {
+        if (force) throw e;
+        console.log(`ERROR: Cannot store data (will be ignored): ${e.stack || e}`);
+    } finally {
+        isStoring = false;
+    }
+};
+
+
+Apify.main(async () => {
     // Fetch and check the input
     const input = await Apify.getValue('INPUT');
     if (!typeCheck(INPUT_TYPE, input)) {
@@ -33,7 +90,7 @@ Apify.main( async () => {
         console.log(INPUT_TYPE);
         console.log('Received input:');
         console.dir(input);
-        throw new Error("Received innvalid input");
+        throw new Error("Received invalid input");
     }
 
     // Get list of URLs from an external text file and add valid URLs to input.urls
@@ -48,7 +105,7 @@ Apify.main( async () => {
     }
 
     // Get the state of crawling (the act might have been restarted)
-    const state = await Apify.getValue('STATE') || { urlToResultKey: {} };
+    state = await Apify.getValue('STATE') || DEFAULT_STATE;
 
     // Worker function, it crawls one URL from the list
     const workerFunc = async (url) => {
@@ -61,6 +118,8 @@ Apify.main( async () => {
         let browser;
 
         try {
+            console.log(`Loading page: ${url}`);
+
             if (input.rawHtmlOnly) {
                 // Open web page using request()
                 const opts = {
@@ -81,7 +140,6 @@ Apify.main( async () => {
                 page.scriptResult = null;
             } else {
                 // Open web page using Chrome
-                console.log(`Loading web page: ${url}`);
                 const opts = _.pick(page, 'url', 'userAgent', 'proxyUrl');
                 browser = await Apify.browse(opts);
 
@@ -107,11 +165,12 @@ Apify.main( async () => {
             if (browser) browser.close();
         }
 
-        // TODO: Store page,
-        //
-        console.dir(page);
+        const pageForLog = _.pick(page, 'url', 'proxyUrl', 'userAgent', 'loadingStartedAt', 'loadingFinishedAt');
+        pageForLog.htmlLength = page.html ? page.html.length : null;
+        console.log(`Finished page: ${JSON.stringify(pageForLog, null, 2)}`);
 
-        state.urlToResultKey[url] = page;
+        finishedPages.push(page);
+        await maybeStoreData();
     };
 
     const urlFinishedCallback = (err) => {
@@ -122,13 +181,15 @@ Apify.main( async () => {
 
     // Push all not-yet-crawled URLs to to the queue
     input.urls.forEach((url) => {
-        if (!state.urlToResultKey[url]) {
+        if (!state.urlToStoreKey[url]) {
             q.push(url, urlFinishedCallback);
         }
     });
 
     // Wait for the queue to finish all tasks
-    await new Promise((resolve, reject) => {
+    await new Promise((resolve) => {
         q.drain = resolve;
     });
+
+    await maybeStoreData(true);
 });
