@@ -9,6 +9,9 @@ The act accepts input of application/json content type with the following body:
     // Array of URLs to open by the browser.
     "urls": [String],
 
+    // URL to a text file containing list of URLs to crawl. Each URL needs to be on a separate line.
+    "urlToTextFileWithUrls": String,
+
     // Mandatory JavaScript code executed in the context of each web page.
     "script": String,
 

@@ -96,12 +96,18 @@ Apify.main(async () => {
     // Get list of URLs from an external text file and add valid URLs to input.urls
     input.urls = input.urls || [];
     if (input.urlToTextFileWithUrls) {
+        console.log(`Fetching URLs from text file at ${input.urlToTextFileWithUrls}`);
         const textFile = await request(input.urlToTextFileWithUrls);
+        let count = 0;
         textFile.split('\n').forEach((url) => {
             url = url.trim();
             const parsed = URL.parse(url);
-            if (parsed.host) input.urls.push(url);
+            if (parsed.host) {
+                count++;
+                input.urls.push(url);
+            }
         });
+        console.log(`Added ${count} URLs from the text file`);
     }
 
     // Get the state of crawling (the act might have been restarted)
