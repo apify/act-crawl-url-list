@@ -43,6 +43,7 @@ const requestPromised = async (opts) => {
 };
 
 const redactProxyUrl = (url) => {
+    if (!url) return url;
     const parsed = URL.parse(url);
     return `${parsed.scheme}//${parsed.auth ? '<redacted>@' : ''}${parsed.host}`;
 };
@@ -59,7 +60,7 @@ let lastStoredAt = new Date();
 
 let isStoring = false;
 
-let storePagesInterval = 20;
+let storePagesInterval = 10;
 
 // If there's a long enough time since the last storing,
 // stores finished pages and the current state to the KV store.
@@ -163,7 +164,7 @@ Apify.main(async () => {
                 page.scriptResult = null;
             } else {
                 // Open web page using Chrome
-                const opts = _.pick(page, 'url', 'userAgent')
+                const opts = _.pick(page, 'url', 'userAgent');
                 opts.proxyUrl = proxyUrl;
                 browser = await Apify.browse(opts);
 

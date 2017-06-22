@@ -43,7 +43,7 @@ The act accepts input of application/json content type with the following body:
     // How many pages will be buffered before they are stored to the key-value store.
     // If you use low value, there will be a lot of files small files in the storage, but on restart
     // not much work will be repeated. With high value, the files in storage will be large.
-    // By default 20.
+    // By default 10.
     storePagesInterval: Number,
 }
 ```
@@ -83,9 +83,7 @@ Example inputs:
     "urls": [
         "https://www.example.com"
     ],
-
     "script": "return document.documentElement.innerHTML",
-
-    "userAgents": ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.32 Safari/537.36"],
+    "userAgents": ["Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.32 Safari/537.36"]
 }
 ```
