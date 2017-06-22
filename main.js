@@ -17,20 +17,28 @@ const INPUT_TYPE = `{
     userAgents: Maybe [String],
     concurrency: Maybe Number,
     sleepSecs: Maybe Number,
-    rawHtmlOnly: Maybe Boolean
+    rawHtmlOnly: Maybe Boolean,
+    storePagesInterval: Maybe Number
 }`;
 
-const SAVE_INTERVAL_MILLIS = 5 * 60 * 1000; // 3 minutes
-
 const DEFAULT_STATE = {
-    urlToStoreKey: {},
-    storedCount: 0,
+    storeCount: 0,
+    pageCount: 0,
 };
 
 // Returns random array element, or null if array is empty, null or undefined.
 const getRandomElement = (array) => {
     if (!array || !array.length) return null;
     return array[Math.floor(Math.random() * array.length)];
+};
+
+const requestPromised = async (opts) => {
+    return new Promise((resolve, reject) => {
+        request(opts, (error, response, body) => {
+            if (error) return reject(error);
+            resolve(body);
+        });
+    });
 };
 
 
@@ -45,6 +53,8 @@ let lastStoredAt = new Date();
 
 let isStoring = false;
 
+let storePagesInterval = 100;
+
 // If there's a long enough time since the last storing,
 // stores finished pages and the current state to the KV store.
 const maybeStoreData = async (force) => {
@@ -52,7 +62,7 @@ const maybeStoreData = async (force) => {
     if (finishedPages.length === 0) return;
 
     // Is it long enough time since the last storing?
-    if (!force && Date.now() - lastStoredAt.getTime() < SAVE_INTERVAL_MILLIS) return;
+    if (!force && finishedPages.length < storePagesInterval) return;
 
     // Isn't some other worker storing data?
     if (isStoring) return;
@@ -62,14 +72,16 @@ const maybeStoreData = async (force) => {
         // Store buffered pages to store under key PAGES-XXX
         // Careful here, finishedPages array might be added more elements while awaiting setValue()
         const pagesToStore = _.clone(finishedPages);
-        const key = `PAGES-${leftPad(state.storedCount++, 9, '0')}`;
+        const key = `PAGES-${leftPad(state.storeCount+1, 9, '0')}`;
+
+        console.log(`Storing ${pagesToStore.length} pages to ${key} (total pages crawled: ${state.pageCount + pagesToStore.length})`);
         await Apify.setValue(key, pagesToStore);
+
         finishedPages.splice(0, pagesToStore.length);
 
-        // Save state
-        pagesToStore.forEach((page) => {
-            state.urlToStoreKey[page.url] = key;
-        });
+        // Update and save state (but only after saving pages!)
+        state.pageCount += pagesToStore.length;
+        state.storeCount++;
         await Apify.setValue('STATE', state);
 
         lastStoredAt = new Date();
@@ -96,8 +108,9 @@ Apify.main(async () => {
     // Get list of URLs from an external text file and add valid URLs to input.urls
     input.urls = input.urls || [];
     if (input.urlToTextFileWithUrls) {
-        console.log(`Fetching URLs from text file at ${input.urlToTextFileWithUrls}`);
-        const textFile = await request(input.urlToTextFileWithUrls);
+        console.log(`Fetching text file from ${input.urlToTextFileWithUrls}`);
+        const textFile = await requestPromised({ url: input.urlToTextFileWithUrls });
+        console.log(`Processing URLs from text file (length: ${textFile.length})`);
         let count = 0;
         textFile.split('\n').forEach((url) => {
             url = url.trim();
@@ -109,6 +122,8 @@ Apify.main(async () => {
         });
         console.log(`Added ${count} URLs from the text file`);
     }
+
+    if (input.storePagesInterval > 0) storePagesInterval = input.storePagesInterval;
 
     // Get the state of crawling (the act might have been restarted)
     state = await Apify.getValue('STATE') || DEFAULT_STATE;
@@ -133,14 +148,8 @@ Apify.main(async () => {
                     headers: page.userAgent ? { 'User-Agent': page.userAgent } : null,
                     proxy: page.proxyUrl,
                 };
-                const result = await new Promise((resolve, reject) => {
-                    request(url, (error, response, body) => {
-                        if (error) return reject(error);
-                        resolve({ response, body });
-                    });
-                });
 
-                page.html = result.body;
+                page.html = await requestPromised(opts);
                 page.loadingFinishedAt = new Date();
                 page.loadedUrl = url;
                 page.scriptResult = null;
@@ -171,9 +180,10 @@ Apify.main(async () => {
             if (browser) browser.close();
         }
 
-        const pageForLog = _.pick(page, 'url', 'proxyUrl', 'userAgent', 'loadingStartedAt', 'loadingFinishedAt');
-        pageForLog.htmlLength = page.html ? page.html.length : null;
-        console.log(`Finished page: ${JSON.stringify(pageForLog, null, 2)}`);
+        // const pageForLog = _.pick(page, 'url', 'proxyUrl', 'userAgent', 'loadingStartedAt', 'loadingFinishedAt');
+        // pageForLog.htmlLength = page.html ? page.html.length : null;
+        // console.log(`Finished page: ${JSON.stringify(pageForLog, null, 2)}`);
+        console.log(`Finished page: ${page.url}`);
 
         finishedPages.push(page);
         await maybeStoreData();
@@ -186,10 +196,12 @@ Apify.main(async () => {
     const q = async.queue(workerFunc, input.concurrency > 0 ? input.concurrency : 1);
 
     // Push all not-yet-crawled URLs to to the queue
+    if (state.pageCount > 0) {
+        console.log(`Skipping first ${state.pageCount} pages that were already crawled`);
+        input.urls.splice(0, state.pageCount);
+    }
     input.urls.forEach((url) => {
-        if (!state.urlToStoreKey[url]) {
-            q.push(url, urlFinishedCallback);
-        }
+        q.push(url, urlFinishedCallback);
     });
 
     // Wait for the queue to finish all tasks
