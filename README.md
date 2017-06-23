@@ -39,6 +39,10 @@ The act accepts input of application/json content type with the following body:
     // If true, the act doesn't start Chrome but uses simple HTTP request to
     // only get the initial HTML of the page. The HTML is stored
     rawHtmlOnly: Boolean,
+    
+    // If rawHtmlOnly true, you can set compressedContent
+    // It will set gzip options to request see: https://www.npmjs.com/package/request#requestoptions-callback
+    compressedContent: Boolean,
 
     // How many pages will be buffered before they are stored to the key-value store.
     // If you use low value, there will be a lot of files small files in the storage, but on restart

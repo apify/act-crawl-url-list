@@ -19,6 +19,7 @@ const INPUT_TYPE = `{
     concurrency: Maybe Number,
     sleepSecs: Maybe Number,
     rawHtmlOnly: Maybe Boolean,
+    compressedContent : Maybe Boolean,
     storePagesInterval: Maybe Number
 }`;
 
@@ -162,6 +163,7 @@ Apify.main(async () => {
                     url,
                     headers: page.userAgent ? { 'User-Agent': page.userAgent } : null,
                     proxy: proxyUrl,
+                    gzip: !!(input.compressedContent)
                 };
 
                 page.html = await requestPromised(opts);
