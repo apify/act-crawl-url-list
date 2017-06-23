@@ -38,7 +38,7 @@ const requestPromised = async (opts) => {
     return new Promise((resolve, reject) => {
         request(opts, (error, response, body) => {
             if (error) return reject(error);
-            resolve(body);
+            resolve({ body: body, response: response });
         });
     });
 };
@@ -61,7 +61,7 @@ let lastStoredAt = new Date();
 
 let isStoring = false;
 
-let storePagesInterval = 10;
+let storePagesInterval = 50;
 
 // If there's a long enough time since the last storing,
 // stores finished pages and the current state to the KV store.
@@ -123,7 +123,8 @@ Apify.main(async () => {
     input.urls = input.urls || [];
     if (input.urlToTextFileWithUrls) {
         console.log(`Fetching text file from ${input.urlToTextFileWithUrls}`);
-        const textFile = await requestPromised({ url: input.urlToTextFileWithUrls });
+        const request = await requestPromised({ url: input.urlToTextFileWithUrls });
+        const textFile = request.body;
         console.log(`Processing URLs from text file (length: ${textFile.length})`);
         let count = 0;
         textFile.split('\n').forEach((url) => {
@@ -166,7 +167,9 @@ Apify.main(async () => {
                     gzip: !!(input.compressedContent)
                 };
 
-                page.html = await requestPromised(opts);
+                const request = await requestPromised(opts);
+                page.html = request.body;
+                page.statusCode = request.response.statusCode;
                 page.loadingFinishedAt = new Date();
                 page.loadedUrl = url;
                 page.scriptResult = null;
