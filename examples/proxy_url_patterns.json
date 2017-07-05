@@ -1,0 +1,17 @@
+{
+  "urls": [
+    "https://www.example.com",
+    "https://www.cnn.com",
+    "https://www.idnes.cz",
+    "https://www.apifier.com",
+    "https://www.apifier.com/about",
+    "https://www.apifier.com/release-notes",
+    "https://www.apifier.com/docs",
+    "https://www.apifier.com/customers"
+  ],
+  "script": "return document.documentElement.innerHTML",
+  "proxyUrls": [
+    "http://lum-customer-apifier-zone-myzone-session-<randomSessionId>:myzonepassword@zproxy.luminati.io:22225",
+    "http://lum-customer-apifier-zone-myzone2-session-<randomSessionId>:myzonepassword2@zproxy.luminati.io:22225"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "urls": [
+    "https://www.example.com",
+    "https://www.cnn.com",
+    "https://www.idnes.cz",
+    "https://www.apifier.com",
+    "https://www.apifier.com/about",
+    "https://www.apifier.com/release-notes",
+    "https://www.apifier.com/docs",
+    "https://www.apifier.com/customers"
+  ],
+  "script": "return document.documentElement.innerHTML",
+  "userAgents": [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.32 Safari/537.36"
+  ]
+}

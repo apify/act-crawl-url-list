@@ -1,6 +1,7 @@
 const URL = require('url');
 const _ = require('underscore');
 const Apify = require('apify');
+const utils = require('apify/utils');
 const request = require('request');
 const async = require('async');
 const typeCheck = require('type-check').typeCheck;
@@ -51,12 +52,6 @@ const requestPromised = async (opts) => {
 
 const completeProxyUrl = (url) => {
     return url ? url.replace(/<randomSessionId>/g, randomInt(999999999)) : url;
-};
-
-const redactProxyUrl = (url) => {
-    if (!url) return url;
-    const parsed = URL.parse(url);
-    return `${parsed.protocol}//${parsed.auth ? '<redacted>@' : ''}${parsed.host}`;
 };
 
 
@@ -162,7 +157,7 @@ Apify.main(async () => {
             url,
             loadingStartedAt: new Date(),
             userAgent: getRandomElement(input.userAgents),
-            redactedProxyUrl: redactProxyUrl(proxyUrl),
+            redactedProxyUrl: proxyUrl ? utils.redactUrl(proxyUrl) : null,
         };
         let browser;
 
