@@ -1,6 +1,7 @@
 # act-crawl-url-list
 
-Apify act to crawl a list of URLs and executes a JavaScript page function on each of them.
+Apify act to crawl a list of URLs and extracts data from each of the pages,
+either using Chrome headless browser or using a simple HTTP request.
 
 The act accepts input of application/json content type with the following body:
 
@@ -23,8 +24,28 @@ The act accepts input of application/json content type with the following body:
     asyncScript: String,
 
     // Array of URLs to proxy servers. The proxies are picked randomly from this list.
+    // Note that the proxy URL can contain a special token '<randomSessionId>',
+    // which is replaced by a random numerical string before use. For example, the URL can look as follows:
+    // "http://lum-customer-apifier-zone-myzone-session-<randomSessionId>:myzonepassword@zproxy.luminati.io:22225".
+    // This is useful to rotate residential IP addresses with proxy providers such as Luminati.
     // By default no proxies are used.
     proxyUrls: [String],
+
+    // Indicates whether the browser processes should use the same directory to store cache.
+    // Note that if 'concurrency' is greater than one, the cache is not optimal, because multiple
+    // Chrome processes will write to the cache and overwrite each other entries.
+    // However, the data integrity should be preserved and over time the cache will be likley populated
+    // with useful entries and speed up your crawling.
+    // By default the value is false.
+    noCache: Boolean,
+
+    // Indicates the maximum size of the cache directory, in bytes.
+    // Only applicable if 'useCache' is true. From Chrome source code comments:
+    // "The value specified in this policy is not a hard boundary but rather a
+    // suggestion to the caching system, any value below a few megabytes is too
+    // small and will be rounded up to a sane minimum."
+    // By default the value is 100.
+    cacheSizeMegabytes: Number,
 
     // Array of User-Agent HTTP headers. The user agent is picked randomly from this list.
     // By default the user agent is left for the browser to determine.
@@ -36,7 +57,7 @@ The act accepts input of application/json content type with the following body:
     // Number of seconds to wait for the page to be loaded. By default 0.
     sleepSecs: Number,
 
-    // If true, the act doesn't start Chrome but uses simple HTTP request to
+    // If true, the act does not start Chrome but uses simple HTTP request to
     // only get the initial HTML of the page. The HTML is stored
     rawHtmlOnly: Boolean,
     

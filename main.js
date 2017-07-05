@@ -15,6 +15,8 @@ const INPUT_TYPE = `{
     script: Maybe String,
     asyncScript: Maybe String,
     proxyUrls: Maybe [String],
+    noCache: Maybe Boolean,
+    cacheSizeMegabytes: Maybe Number,
     userAgents: Maybe [String],
     concurrency: Maybe Number,
     sleepSecs: Maybe Number,
@@ -28,10 +30,14 @@ const DEFAULT_STATE = {
     pageCount: 0,
 };
 
+const randomInt = (maxExclusive) => {
+    return Math.floor(Math.random() * maxExclusive);
+};
+
 // Returns random array element, or null if array is empty, null or undefined.
 const getRandomElement = (array) => {
     if (!array || !array.length) return null;
-    return array[Math.floor(Math.random() * array.length)];
+    return array[randomInt(array.length)];
 };
 
 const requestPromised = async (opts) => {
@@ -41,6 +47,10 @@ const requestPromised = async (opts) => {
             resolve({ body: body, response: response });
         });
     });
+};
+
+const completeProxyUrl = (url) => {
+    return url ? url.replace(/<randomSessionId>/g, randomInt(999999999)) : url;
 };
 
 const redactProxyUrl = (url) => {
@@ -145,7 +155,8 @@ Apify.main(async () => {
 
     // Worker function, it crawls one URL from the list
     const workerFunc = async (url) => {
-        const proxyUrl = getRandomElement(input.proxyUrls);
+        const proxyUrlPattern = getRandomElement(input.proxyUrls);
+        const proxyUrl = completeProxyUrl(proxyUrlPattern);
 
         const page = {
             url,
@@ -177,6 +188,14 @@ Apify.main(async () => {
                 // Open web page using Chrome
                 const opts = _.pick(page, 'url', 'userAgent');
                 opts.proxyUrl = proxyUrl;
+
+                if (!input.noCache) {
+                    opts.extraChromeArguments = ['--disk-cache-dir=/tmp/chrome-cache/'];
+                    if (input.cacheSizeMegabytes > 0) {
+                        opts.extraChromeArguments.push(`--disk-cache-size=${input.cacheSizeMegabytes * 1024 * 1024}`);
+                    }
+                }
+
                 browser = await Apify.browse(opts);
 
                 page.loadingFinishedAt = new Date();
