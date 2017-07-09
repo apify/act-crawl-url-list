@@ -96,7 +96,7 @@ const maybeStoreData = async (force) => {
             body: pagesToStore,
             contentType: 'application/json',
             url: true,
-        })
+        });
 
         finishedPages.splice(0, pagesToStore.length);
 
