@@ -52,6 +52,29 @@ const requestPromised = async (opts) => {
     });
 };
 
+/**
+ * Special request for ziped files
+ * work only one file in zip
+ * npm request doesn't work with deflate content
+ * delete after for fix for https://github.com/request/request/issues/2197
+ */
+const requestWithUnzipPromised = async (opts) => {
+    return new Promise((resolve, reject) => {
+        const tempFileStream = fs.createWriteStream('tempFile.txt');
+        const requestWithUnzip = {}; // returns same object as in requestPromised
+        request(opts)
+        .on('response', (response) => {
+            requestWithUnzip.response = response;
+            response.pipe(zlib.createGunzip()).pipe(tempFileStream);
+        })
+        .on('end', () => {
+            tempFileStream.end();
+            requestWithUnzip.body = fs.readFileSync('./tempFile.txt').toString();
+            resolve(requestWithUnzip)
+        }).on('error', reject);
+    });
+};
+
 const completeProxyUrl = (url) => {
     return url ? url.replace(/<randomSessionId>/g, randomInt(999999999)) : url;
 };
@@ -136,28 +159,15 @@ Apify.main(async () => {
     input.urls = input.urls || [];
     if (input.urlToTextFileWithUrls) {
         console.log(`Fetching text file from ${input.urlToTextFileWithUrls}`);
-        const gzip = (input.urlToTextFileWithUrls.indexOf(".gz") > -1)
-        let textFile;
+        const gzip = (input.urlToTextFileWithUrls.indexOf(".gz") > -1);
+        const options = { url: input.urlToTextFileWithUrls };
+        let request;
         if (gzip) {
-            var endStream = new Promise((resolve, reject) => {
-                const tempFileStream = fs.createWriteStream('tempFile.txt');
-                request.get(input.urlToTextFileWithUrls)
-                    .on('response', (response) => {
-                        console.log(response.headers['content-type'])
-                        response.pipe(zlib.createGunzip()).pipe(tempFileStream);
-                    })
-                    .on('end', ()=> {
-                        tempFileStream.end();
-                        resolve(
-                            fs.readFileSync('./tempFile.txt').toString()
-                        )
-                    }).on('error', reject);
-            });
-            textFile = await endStream;
+            request = await requestWithUnzipPromised(options);
         } else {
-            const request = await requestPromised({ url: input.urlToTextFileWithUrls});
-            textFile = request.body;
+            request = await requestPromised(options);
         }
+        const textFile = request.body;
         console.log(`Processing URLs from text file (length: ${textFile.length})`);
         let count = 0;
         textFile.split('\n').forEach((url) => {
