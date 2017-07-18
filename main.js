@@ -8,8 +8,7 @@ const typeCheck = require('type-check').typeCheck;
 const leftPad = require('left-pad');
 const zlib = require('zlib');
 const fs = require('fs');
-
-// TODO: save screenshots to kv-store
+const uniqid = require('uniqid');
 
 // Definition of the input
 const INPUT_TYPE = `{
@@ -25,7 +24,10 @@ const INPUT_TYPE = `{
     sleepSecs: Maybe Number,
     rawHtmlOnly: Maybe Boolean,
     compressedContent : Maybe Boolean,
-    storePagesInterval: Maybe Number
+    storePagesInterval: Maybe Number,
+    saveSnapshots: Maybe Boolean,
+    waitForFunction: Maybe String,
+    waitForFunctionTimeout: Maybe Number
 }`;
 
 const DEFAULT_STATE = {
@@ -113,13 +115,8 @@ const maybeStoreData = async (force) => {
 
         console.log(`Storing ${pagesToStore.length} pages to ${key} (total pages crawled: ${state.pageCount + pagesToStore.length})`);
 
-        await Apify.client.keyValueStores.putRecord({
-            storeId: process.env.APIFY_DEFAULT_KEY_VALUE_STORE_ID,
-            key,
-            body: pagesToStore,
-            contentType: 'application/json',
-            url: true,
-        });
+        await Apify.setValue(key, pagesToStore);
+
 
         finishedPages.splice(0, pagesToStore.length);
 
@@ -141,6 +138,39 @@ const maybeStoreData = async (force) => {
     } finally {
         isStoring = false;
     }
+};
+
+// Wait until conditionScript return true
+const waitForConditionPromise = (browser, conditionScript, timeout) => {
+    return new Promise((resolve, reject) => {
+        console.log(`Started waiting for ${conditionScript}`);
+        const startedAt = new Date();
+        const waitLoop = () => {
+            if ((new Date() - startedAt) > timeout) {
+                reject(new Error("Timeout before condition pass"));
+            }
+            browser.webDriver.executeScript(conditionScript).then((conditionResult) => {
+                if (conditionResult) {
+                    console.log(`Waiting finished`);
+                    resolve();
+                } else {
+                    setTimeout(waitLoop, 500);
+                }
+            });
+        };
+        waitLoop();
+    });
+};
+
+// Save snapshot to storage
+const takeSnapShot = async (browser, key) => {
+    key = key || "SNAPSHOT";
+    const width  = await browser.webDriver.executeScript("return Math.max(document.body.scrollWidth, document.body.offsetWidth, document.documentElement.clientWidth, document.documentElement.scrollWidth, document.documentElement.offsetWidth);");
+    const height = await browser.webDriver.executeScript("return Math.max(document.body.scrollHeight, document.body.offsetHeight, document.documentElement.clientHeight, document.documentElement.scrollHeight, document.documentElement.offsetHeight);");
+    await browser.webDriver.manage().window().setSize(width, height);
+    const screen = await browser.webDriver.takeScreenshot();
+    await Apify.setValue(key, Buffer.from(screen, 'base64'), { contentType: 'image/png' });
+    console.log(`Save snapshot to default storage with key: ${key}`);
 };
 
 
@@ -244,6 +274,15 @@ Apify.main(async () => {
                     await browser.webDriver.sleep(1000 * input.sleepSecs);
                 }
 
+                if (input.waitConditionScript) {
+                    const timeout = input.waitConditionScriptTimeout || 10000;
+                    await waitForConditionPromise(browser, input.waitConditionScript, timeout);
+                }
+
+                if (input.saveSnapshots) {
+                    page.snapshotStorageKey = uniqid();
+                    await takeSnapShot(browser, page.snapshotStorageKey);
+                }
                 page.loadedUrl = await browser.webDriver.getCurrentUrl();
 
                 // Run sync script to get data
