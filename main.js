@@ -26,8 +26,8 @@ const INPUT_TYPE = `{
     compressedContent : Maybe Boolean,
     storePagesInterval: Maybe Number,
     saveSnapshots: Maybe Boolean,
-    waitForFunction: Maybe String,
-    waitForFunctionTimeout: Maybe Number
+    waitConditionScript: Maybe String,
+    waitConditionScriptTimeout: Maybe Number
 }`;
 
 const DEFAULT_STATE = {
