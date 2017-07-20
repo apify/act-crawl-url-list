@@ -31,13 +31,13 @@ The act accepts input of application/json content type with the following body:
     // By default no proxies are used.
     proxyUrls: [String],
 
-    // Indicates whether the browser processes should use the same directory to store cache.
+    // Indicates whether the browser processes should avoid using the same directory to store cache.
     // Note that if 'concurrency' is greater than one, the cache is not optimal, because multiple
     // Chrome processes will write to the cache and overwrite each other entries.
     // However, the data integrity should be preserved and over time the cache will be likley populated
     // with useful entries and speed up your crawling.
     // By default the value is false.
-    noCache: Boolean,
+    avoidCache: Boolean,
 
     // Indicates the maximum size of the cache directory, in bytes.
     // Only applicable if 'useCache' is true. From Chrome source code comments:

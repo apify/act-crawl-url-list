@@ -17,7 +17,7 @@ const INPUT_TYPE = `{
     script: Maybe String,
     asyncScript: Maybe String,
     proxyUrls: Maybe [String],
-    noCache: Maybe Boolean,
+    avoidCache: Maybe Boolean,
     cacheSizeMegabytes: Maybe Number,
     userAgents: Maybe [String],
     concurrency: Maybe Number,
@@ -242,7 +242,7 @@ Apify.main(async () => {
         let browser;
 
         try {
-            console.log(`Loading page: ${url}`);
+            console.log(`Loading page: ${url} (proxyUrl: ${page.redactedProxyUrl})`);
 
             if (input.rawHtmlOnly) {
                 // Open web page using request()
@@ -268,7 +268,7 @@ Apify.main(async () => {
                 const opts = _.pick(page, 'url', 'userAgent');
                 opts.proxyUrl = proxyUrl;
 
-                if (!input.noCache) {
+                if (!input.avoidCache) {
                     opts.extraChromeArguments = ['--disk-cache-dir=/tmp/chrome-cache/'];
                     if (input.cacheSizeMegabytes > 0) {
                         opts.extraChromeArguments.push(`--disk-cache-size=${input.cacheSizeMegabytes * 1024 * 1024}`);
