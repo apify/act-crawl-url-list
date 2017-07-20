@@ -70,6 +70,21 @@ The act accepts input of application/json content type with the following body:
     // not much work will be repeated. With high value, the files in storage will be large.
     // By default 10.
     storePagesInterval: Number,
+    
+    // If true, the act saves snapshots of all urls to default key value store
+    // Saves key of snapshot to page.snapshotStorageKey
+    saveSnapshots: Boolean,
+    
+    // If set, the act wait for this condition on all url before save results
+    // Condition should be command in string, which is executed in browser
+    // Condition should return true if condition is pass, e.g. "return !!(document.querySelector('#searchProgressText'))"
+    waitConditionScript: String,
+    
+    // Timeout for waitConditionScript in millisecond
+    waitConditionScriptTimeout: Number,
+    
+    // If set, the act tries to find this string in HTML and sets isCaptchaString to true or false on each urls
+    captchaString: String
 }
 ```
 

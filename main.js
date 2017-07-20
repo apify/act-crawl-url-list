@@ -27,7 +27,8 @@ const INPUT_TYPE = `{
     storePagesInterval: Maybe Number,
     saveSnapshots: Maybe Boolean,
     waitConditionScript: Maybe String,
-    waitConditionScriptTimeout: Maybe Number
+    waitConditionScriptTimeout: Maybe Number,
+    captchaString: Maybe String
 }`;
 
 const DEFAULT_STATE = {
@@ -146,17 +147,22 @@ const waitForConditionPromise = (browser, conditionScript, timeout) => {
         console.log(`Started waiting for ${conditionScript}`);
         const startedAt = new Date();
         const waitLoop = () => {
-            if ((new Date() - startedAt) > timeout) {
-                reject(new Error("Timeout before condition pass"));
-            }
-            browser.webDriver.executeScript(conditionScript).then((conditionResult) => {
-                if (conditionResult) {
-                    console.log(`Waiting finished`);
-                    resolve();
-                } else {
-                    setTimeout(waitLoop, 500);
+            try {
+                if ((new Date() - startedAt) > timeout) {
+                    reject(new Error("Timeout before condition pass"));
                 }
-            });
+                browser.webDriver.executeScript(conditionScript)
+                .then((conditionResult) => {
+                    if (conditionResult) {
+                        console.log(`Waiting finished`);
+                        resolve(new Date() - startedAt);
+                    } else {
+                        setTimeout(waitLoop, 2000);
+                    }
+                });
+            } catch (err) {
+                reject(err);
+            }
         };
         waitLoop();
     });
@@ -249,6 +255,10 @@ Apify.main(async () => {
 
                 const request = await requestPromised(opts);
                 page.html = request.body;
+                page.htmlLength = request.body.length;
+                if (input.captchaString) {
+                    page.isCaptchaString = (page.html.indexOf(input.captchaString) > -1)
+                }
                 page.statusCode = request.response.statusCode;
                 page.loadingFinishedAt = new Date();
                 page.loadedUrl = url;
@@ -276,7 +286,7 @@ Apify.main(async () => {
 
                 if (input.waitConditionScript) {
                     const timeout = input.waitConditionScriptTimeout || 10000;
-                    await waitForConditionPromise(browser, input.waitConditionScript, timeout);
+                    page.waitForConditionTime = await waitForConditionPromise(browser, input.waitConditionScript, timeout);
                 }
 
                 if (input.saveSnapshots) {
@@ -298,12 +308,18 @@ Apify.main(async () => {
                 } else {
                     page.asyncScriptResult = null;
                 }
+
+                const pageHtml = await browser.webDriver.executeScript("return document.documentElement.innerHTML");
+                if (input.captchaString) {
+                    page.isCaptchaString = (pageHtml.indexOf(input.captchaString) > -1)
+                }
+                page.htmlLength =  pageHtml.length;
             }
         } catch (e) {
             console.log(`Loading of web page failed (${url}): ${e}`);
             page.errorInfo = e.stack || e.message || e;
         } finally {
-            if (browser) browser.close();
+            if (browser) await browser.close();
         }
 
         // const pageForLog = _.pick(page, 'url', 'proxyUrl', 'userAgent', 'loadingStartedAt', 'loadingFinishedAt');
