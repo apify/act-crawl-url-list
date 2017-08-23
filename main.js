@@ -1,11 +1,13 @@
 const URL = require('url');
 const _ = require('underscore');
 const Apify = require('apify');
-const utils = require('apify/utils');
+const utils = require('apify/build/utils');
 const request = require('request');
 const async = require('async');
 const typeCheck = require('type-check').typeCheck;
 const leftPad = require('left-pad');
+const htmlToText = require('html-to-text');
+
 
 // TODO: save screenshots to kv-store
 
@@ -23,7 +25,8 @@ const INPUT_TYPE = `{
     sleepSecs: Maybe Number,
     rawHtmlOnly: Maybe Boolean,
     compressedContent : Maybe Boolean,
-    storePagesInterval: Maybe Number
+    storePagesInterval: Maybe Number,
+    htmlToText: Maybe Boolean
 }`;
 
 const DEFAULT_STATE = {
@@ -214,6 +217,16 @@ Apify.main(async () => {
                     page.asyncScriptResult = await browser.webDriver.executeAsyncScript(input.asyncScript);
                 } else {
                     page.asyncScriptResult = null;
+                }
+
+                if (input.htmlToText) {
+                    page.html = await browser.webDriver.executeScript('return document.documentElement.innerHTML');
+                    page.text = htmlToText.fromString(page.html, {
+                        wordwrap: 130,
+                        hideLinkHrefIfSameAsText: false,
+                        ignoreHref: true,
+                        ignoreImage: true
+                    });
                 }
             }
         } catch (e) {

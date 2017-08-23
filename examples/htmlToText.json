@@ -1,0 +1,11 @@
+{
+  "urlToTextFileWithUrls": "https://apifier-user-uploaded-files-prod.s3.amazonaws.com/d2apSCLfYRMJSSX2e-htmltotext.txt",
+  "userAgents": [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.32 Safari/537.36"
+  ],
+  "concurrency": 5,
+  "storePagesInterval": 100,
+  "htmlToText": true,
+  "sleepSecs": 1,
+  "avoidCache": true
+}

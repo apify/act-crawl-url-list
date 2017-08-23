@@ -70,6 +70,9 @@ The act accepts input of application/json content type with the following body:
     // not much work will be repeated. With high value, the files in storage will be large.
     // By default 10.
     storePagesInterval: Number,
+
+    // If true, the act converts html to text and saves attribute html and text to all pages
+    htmlToText: Boolean,
 }
 ```
 
