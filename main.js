@@ -23,7 +23,8 @@ const INPUT_TYPE = `{
     sleepSecs: Maybe Number,
     rawHtmlOnly: Maybe Boolean,
     compressedContent : Maybe Boolean,
-    storePagesInterval: Maybe Number
+    storePagesInterval: Maybe Number,
+    pageTimeoutSecs: Maybe Number,
 }`;
 
 const DEFAULT_STATE = {
@@ -162,7 +163,7 @@ Apify.main(async () => {
         let browser;
 
         try {
-            console.log(`Loading page: ${url} (proxyUrl: ${page.redactedProxyUrl})`);
+            console.log(`Loading page: ${url}` + (page.redactedProxyUrl ? ` (proxyUrl: ${page.redactedProxyUrl})` : '') );
 
             if (input.rawHtmlOnly) {
                 // Open web page using request()
@@ -170,7 +171,8 @@ Apify.main(async () => {
                     url,
                     headers: page.userAgent ? { 'User-Agent': page.userAgent } : null,
                     proxy: proxyUrl,
-                    gzip: !!(input.compressedContent)
+                    gzip: !!(input.compressedContent),
+                    timeout: input.pageTimeoutSecs > 0 ? input.pageTimeoutSecs*1000 : 30*1000,
                 };
 
                 const request = await requestPromised(opts);
@@ -243,14 +245,16 @@ Apify.main(async () => {
         console.log(`Skipping first ${state.pageCount} pages that were already crawled`);
         input.urls.splice(0, state.pageCount);
     }
-    input.urls.forEach((url) => {
-        q.push(url, urlFinishedCallback);
-    });
+    if (input.urls.length > 0) {
+        input.urls.forEach((url) => {
+            q.push(url, urlFinishedCallback);
+        });
 
-    // Wait for the queue to finish all tasks
-    await new Promise((resolve) => {
-        q.drain = resolve;
-    });
+        // Wait for the queue to finish all tasks
+        await new Promise((resolve) => {
+            q.drain = resolve;
+        });
+    }
 
     await maybeStoreData(true);
 });
