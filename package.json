@@ -1,0 +1,28 @@
+{
+  "name": "act-crawl-url-list",
+  "version": "0.0.1",
+  "author": {
+    "name": "Jan Curn",
+    "email": "jan@apifier.com",
+    "url": "http://www.apifier.com"
+  },
+  "license": "Apache-2.0",
+  "private": true,
+  "bugs": {
+    "url": "http://www.apifier.com"
+  },
+  "homepage": "http://www.apifier.com",
+  "dependencies": {
+    "apify": "beta",
+    "async": "latest",
+    "left-pad": "latest",
+    "selenium-webdriver": "latest",
+    "type-check": "latest",
+    "request": "latest",
+    "underscore": "latest"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "APIFY_DEV_KEY_VALUE_STORE_DIR=./kv-store-dev/ node main.js"
+  }
+}

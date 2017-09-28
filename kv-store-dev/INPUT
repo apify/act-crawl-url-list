@@ -1,0 +1,11 @@
+{
+    "urls": ["http://www.example.com", "https://www.apifier.com"],
+    "script": "return document.documentElement.innerHTML",
+    "userAgents": [
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.32 Safari/537.36"
+    ],
+    "concurrency": 1,
+    "sleepSecs": 3,
+    "rawHtmlOnly": true,
+    "pageTimeoutSecs": 5
+}
