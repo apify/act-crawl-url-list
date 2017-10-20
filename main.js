@@ -7,7 +7,7 @@ const async = require('async');
 const typeCheck = require('type-check').typeCheck;
 const leftPad = require('left-pad');
 
-// TODO: save screenshots to kv-store
+// TODO:   save screenshots to kv-store
 
 // Definition of the input
 const INPUT_TYPE = `{
