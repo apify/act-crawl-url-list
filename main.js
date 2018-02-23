@@ -6,6 +6,8 @@ const request = require('request');
 const async = require('async');
 const typeCheck = require('type-check').typeCheck;
 const leftPad = require('left-pad');
+const zlib = require('zlib');
+const fs = require('fs');
 
 // TODO:   save screenshots to kv-store
 
@@ -51,10 +53,32 @@ const requestPromised = async (opts) => {
     });
 };
 
+/**
+ * Special request for ziped files
+ * work only one file in zip
+ * npm request doesn't work with deflate content
+ * delete after for fix for https://github.com/request/request/issues/2197
+ */
+const requestWithUnzipPromised = async (opts) => {
+    return new Promise((resolve, reject) => {
+        const tempFileStream = fs.createWriteStream('tempFile.txt');
+        const requestWithUnzip = {}; // returns same object as in requestPromised
+        request(opts)
+        .on('response', (response) => {
+            requestWithUnzip.response = response;
+            response.pipe(zlib.createGunzip()).pipe(tempFileStream);
+        })
+        .on('end', () => {
+            tempFileStream.end();
+            requestWithUnzip.body = fs.readFileSync('./tempFile.txt').toString();
+            resolve(requestWithUnzip)
+        }).on('error', reject);
+    });
+};
+
 const completeProxyUrl = (url) => {
     return url ? url.replace(/<randomSessionId>/g, randomInt(999999999)) : url;
 };
-
 
 // Objects holding the state of the crawler, which is stored under 'STATE' key in the KV store
 let state;
@@ -67,7 +91,7 @@ let lastStoredAt = new Date();
 
 let isStoring = false;
 
-let storePagesInterval = 50;
+let storePagesInterval = 250;
 
 // If there's a long enough time since the last storing,
 // stores finished pages and the current state to the KV store.
@@ -89,7 +113,14 @@ const maybeStoreData = async (force) => {
         const key = `PAGES-${leftPad(state.storeCount+1, 9, '0')}`;
 
         console.log(`Storing ${pagesToStore.length} pages to ${key} (total pages crawled: ${state.pageCount + pagesToStore.length})`);
-        await Apify.setValue(key, pagesToStore);
+
+        await Apify.client.keyValueStores.putRecord({
+            storeId: process.env.APIFY_DEFAULT_KEY_VALUE_STORE_ID,
+            key,
+            body: pagesToStore,
+            contentType: 'application/json',
+            url: true,
+        });
 
         finishedPages.splice(0, pagesToStore.length);
 
@@ -129,16 +160,29 @@ Apify.main(async () => {
     input.urls = input.urls || [];
     if (input.urlToTextFileWithUrls) {
         console.log(`Fetching text file from ${input.urlToTextFileWithUrls}`);
-        const request = await requestPromised({ url: input.urlToTextFileWithUrls });
+        const gzip = (input.urlToTextFileWithUrls.indexOf(".gz") > -1);
+        const options = { url: input.urlToTextFileWithUrls };
+        let request;
+        if (gzip) {
+            request = await requestWithUnzipPromised(options);
+        } else {
+            request = await requestPromised(options);
+        }
         const textFile = request.body;
         console.log(`Processing URLs from text file (length: ${textFile.length})`);
         let count = 0;
         textFile.split('\n').forEach((url) => {
             url = url.trim();
-            const parsed = URL.parse(url);
-            if (parsed.host) {
-                count++;
-                input.urls.push(url);
+
+            try {
+                const parsed = URL.parse(url);
+                if (parsed.host) {
+                    count++;
+                    input.urls.push(url);
+                }
+            } catch(e) {
+                // go on
+                console.log(e);
             }
         });
         console.log(`Added ${count} URLs from the text file`);
