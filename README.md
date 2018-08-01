@@ -1,9 +1,9 @@
 # act-crawl-url-list
 
-Apify act to crawl a list of URLs and extracts data from each of the pages,
+Apify actor to crawl a list of URLs and extracts data from each of the pages,
 either using Chrome headless browser or using a simple HTTP request.
 
-The act accepts input of application/json content type with the following body:
+The actor accepts input of application/json content type with the following body:
 
 **INPUT**
 
@@ -57,7 +57,7 @@ The act accepts input of application/json content type with the following body:
     // Number of seconds to wait for the page to be loaded. By default 0.
     sleepSecs: Number,
 
-    // If true, the act does not start Chrome but uses simple HTTP request to
+    // If true, the actor does not start Chrome but uses simple HTTP request to
     // only get the initial HTML of the page. The HTML is stored
     rawHtmlOnly: Boolean,
     
